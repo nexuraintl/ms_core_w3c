@@ -9,17 +9,21 @@ FROM debian:stable-slim AS builder
 LABEL name="vnu"
 LABEL version="dev"
 LABEL maintainer="Michael[tm] Smith <mike@w3.org>"
-ADD https://github.com/validator/validator/releases/download/latest/vnu.linux.zip .
-ADD https://github.com/validator/validator/releases/download/latest/vnu.linux.zip.sha1 .
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+# Se descarga con curl (sigue redirects de GitHub releases de forma fiable;
+# el ADD <url> del builder de Cloud Build guardaba archivos vacíos).
+ARG VNU_RELEASE=latest
 RUN apt-get update && apt-get install --no-install-recommends -y \
-       unzip=6.0-29 \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* \
+       ca-certificates curl unzip \
+    && base="https://github.com/validator/validator/releases/download/${VNU_RELEASE}" \
+    && curl -fsSL --retry 5 --retry-all-errors -o vnu.linux.zip      "${base}/vnu.linux.zip" \
+    && curl -fsSL --retry 5 --retry-all-errors -o vnu.linux.zip.sha1 "${base}/vnu.linux.zip.sha1" \
     && echo "$(cat vnu.linux.zip.sha1)  vnu.linux.zip" | sha1sum -c - \
     && unzip ./vnu.linux.zip \
     && rm ./vnu.linux.zip* \
-    && apt-get purge -y --auto-remove unzip
+    && apt-get purge -y --auto-remove curl unzip \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 # hadolint ignore=DL3006
 FROM debian:stable-slim
 COPY --from=builder /vnu-runtime-image /vnu-runtime-image
