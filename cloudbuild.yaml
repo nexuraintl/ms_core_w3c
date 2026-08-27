@@ -1,0 +1,74 @@
+# cloudbuild.yaml — repo ms_core_w3c (Nu HTML Checker / vnu)
+#
+# Un solo archivo para los dos ambientes. Los defaults son QAM (qam-core-w3c,
+# rama qa). El trigger de Cloud Build de la rama master sobre-escribe
+# _SERVICE_NAME=prem-core-w3c a nivel de trigger.
+#
+# $PROJECT_ID y $COMMIT_SHA son variables built-in de Cloud Build.
+# Referencia de recursos: Cloud Run qa-admin-w3c (CPU 1, 2Gi, conc 80,
+# min 1 / max 2, timeout 300, ingress all, sin secretos ni env vars).
+
+steps:
+  # 1) Build
+  - name: 'gcr.io/cloud-builders/docker'
+    id: Build
+    args:
+      - 'build'
+      - '--no-cache'
+      - '-t'
+      - '${_AR_HOSTNAME}/${_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME}:${COMMIT_SHA}'
+      - '-f'
+      - 'Dockerfile'
+      - '.'
+
+  # 2) Push a Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    id: Push
+    args:
+      - 'push'
+      - '${_AR_HOSTNAME}/${_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME}:${COMMIT_SHA}'
+
+  # 3) Deploy a Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: Deploy
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - '${_SERVICE_NAME}'
+      - '--image=${_AR_HOSTNAME}/${_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME}:${COMMIT_SHA}'
+      - '--region=${_REGION}'
+      - '--platform=managed'
+      - '--ingress=all'
+      - '--no-allow-unauthenticated'
+      - '--service-account=${_RUN_SA}'
+      - '--port=8080'
+      - '--min-instances=${_MIN_INSTANCES}'
+      - '--max-instances=${_MAX_INSTANCES}'
+      - '--memory=${_MEMORY}'
+      - '--cpu=${_CPU}'
+      - '--concurrency=${_CONCURRENCY}'
+      - '--timeout=${_TIMEOUT}'
+      - '--labels=managed-by=gcp-cloud-build-deploy-cloud-run,commit-sha=${COMMIT_SHA}'
+
+images:
+  - '${_AR_HOSTNAME}/${_PROJECT_ID}/${_AR_REPOSITORY}/${_SERVICE_NAME}:${COMMIT_SHA}'
+
+substitutions:
+  _SERVICE_NAME: qam-core-w3c
+  _REGION: us-central1
+  _PROJECT_ID: pre-qa-functions
+  _AR_HOSTNAME: us-central1-docker.pkg.dev
+  _AR_REPOSITORY: cloud-run-source-deploy
+  _RUN_SA: run-sa@pre-qa-functions.iam.gserviceaccount.com
+  _MIN_INSTANCES: '1'
+  _MAX_INSTANCES: '2'
+  _MEMORY: 2Gi
+  _CPU: '1'
+  _CONCURRENCY: '80'
+  _TIMEOUT: '300'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: 1200s

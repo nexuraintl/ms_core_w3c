@@ -29,5 +29,6 @@ ENV CONNECTION_TIMEOUT_SECONDS 5
 ENV SOCKET_TIMEOUT_SECONDS 5
 ENV BIND_ADDRESS 0.0.0.0
 ENV PATH=/vnu-runtime-image/bin:$PATH
-EXPOSE 8888
-CMD ["./vnu-runtime-image/bin/java", "-m", "vnu/nu.validator.servlet.Main", "8888"]
+# Cloud Run inyecta $PORT (8080). En local sin $PORT se usa 8888.
+EXPOSE 8080
+CMD ["sh", "-c", "exec /vnu-runtime-image/bin/java -m vnu/nu.validator.servlet.Main ${PORT:-8888}"]
