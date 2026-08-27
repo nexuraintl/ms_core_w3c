@@ -18,7 +18,9 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     && base="https://github.com/validator/validator/releases/download/${VNU_RELEASE}" \
     && curl -fsSL --retry 5 --retry-all-errors -o vnu.linux.zip      "${base}/vnu.linux.zip" \
     && curl -fsSL --retry 5 --retry-all-errors -o vnu.linux.zip.sha1 "${base}/vnu.linux.zip.sha1" \
-    && echo "$(cat vnu.linux.zip.sha1)  vnu.linux.zip" | sha1sum -c - \
+    && test -s vnu.linux.zip \
+    && expected="$(grep -oiE '[0-9a-f]{40}' vnu.linux.zip.sha1 | head -n1)" \
+    && echo "${expected}  vnu.linux.zip" | sha1sum -c - \
     && unzip ./vnu.linux.zip \
     && rm ./vnu.linux.zip* \
     && apt-get purge -y --auto-remove curl unzip \
